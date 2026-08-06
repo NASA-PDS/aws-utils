@@ -2,65 +2,31 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-> **Template repo notice:** This file was generated for `template-repo-python`. If you created a new repo from this template, update this file to reflect your project's actual package name, commands, and architecture before using it.
-
 ## Purpose
 
-This is NASA-PDS's template repository for new Python projects. When working in a repo created from this template, the placeholder `your_package_name` must be replaced with the actual module name throughout `setup.cfg`, `src/pds/`, `tests/`, and other files.
+`aws-utils` is a small set of AWS credential and access helper shell functions for PDS engineers: importing pasted SSO console credentials, exporting a profile's credentials into the current shell, SSO login, and SSM session connect. See the README for the full command list and workflow diagram.
 
-## Commands
+## Architecture
 
-### Setup
+### Shell functions, not a package
 
-```bash
-python -m venv venv
-source venv/bin/activate
-pip install --editable '.[dev]'
-```
+All four commands live in a single sourced file, `shell/aws-utils.sh`, as bash functions rather than a Python package or standalone scripts on `PATH`. This is a deliberate choice, not an oversight: `aws-creds-export` must `eval` into the caller's *current* shell to mutate its environment (set `AWS_ACCESS_KEY_ID` etc. in the interactive session), and a subprocess — which is all a standalone script or console_script entry point ever is — can only ever change its own environment, never its parent's. Since one of the four commands is forced to be a sourced function, all four are kept together for a single `source` line in `.bashrc`/`.zshrc`.
 
-Or via tox:
-
-```bash
-tox --devenv venv -e dev
-```
+Do not port these to Python or split them into standalone executables; that would break `aws-creds-export`.
 
 ### Testing
 
+There's no unit test suite — each function is a thin, directly-readable wrapper (a handful of lines, mostly a single `aws` CLI invocation), and the value of formal tests here is low relative to the overhead of a test harness. Lint with `shellcheck`:
+
 ```bash
-pytest                        # run all tests
-pytest tests/path/test_foo.py # run a single test file
-pytest -k "test_name"         # run a single test by name
-ptw                           # watch mode
+shellcheck shell/aws-utils.sh
 ```
 
-Tests run in parallel by default (`--numprocesses auto`) with coverage reporting to XML and terminal.
-
-### Linting
+Manually smoke-test by sourcing the file and exercising each function, e.g.:
 
 ```bash
-tox -e lint                   # run all linters (flake8, mypy, pre-commit hooks)
-flake8 src                    # flake8 only
-mypy src                      # type-checking only
-```
-
-### Full build (tests + lint + docs)
-
-```bash
-tox
-```
-
-### Documentation
-
-```bash
-sphinx-build docs/source docs/build
-# output at docs/build/index.html
-```
-
-### Build package
-
-```bash
-pip install build
-python -m build .
+source shell/aws-utils.sh
+printf '[test]\naws_access_key_id=X\naws_secret_access_key=Y\n' | aws-creds-import
 ```
 
 ### Secrets detection
@@ -73,36 +39,9 @@ scripts/detect_secrets_baseline.sh        # check for new secrets vs baseline (r
 
 Per-repo file exclusions go in `.detect-secrets-ignore` (one regex per line). Global exclusions (`.git`, `venv`, `dist`, etc.) are baked into the script.
 
-## Architecture
-
-### Package layout
-
-Source lives under `src/pds/<package_name>/` using a [PEP 420 namespace package](https://peps.python.org/pep-0420/) — `src/pds/__init__.py` is intentionally minimal (no `__path__` manipulation) to support the `pds.*` namespace shared across multiple PDS Python packages.
-
-Version is read at import time from `src/pds/<package_name>/VERSION.txt` via `importlib.resources`, not hardcoded.
-
-Entry points (CLI scripts) are declared in `setup.cfg` under `[options.entry_points] console_scripts`.
-
-### Tests
-
-Tests go in `tests/pds/<package_name>/` mirroring the source tree. The `[tool:pytest]` section in `setup.cfg` configures coverage to report on the `pds` namespace.
-
 ### CI/CD
 
-Two standard GitHub Actions workflows drive releases via [NASA-PDS/roundup-action](https://github.com/NASA-PDS/roundup-action):
+- **`branch-cicd.yaml`** — runs `shellcheck` against `shell/` on every non-`main` push.
+- **`secrets-detection.yaml`** — runs `detect-secrets` against the baseline on push/PR to `main`.
 
-- **`unstable-cicd.yaml`** — triggers on push to `main`; publishes a SNAPSHOT release to Test PyPI
-- **`stable-cicd.yaml`** — triggers on push to `release/<version>` branches; publishes stable releases to PyPI
-
-Required repository secrets: `ADMIN_GITHUB_TOKEN`, `TEST_PYPI_USERNAME`, `TEST_PYPI_PASSWORD`, `SONAR_TOKEN`.
-
-### Code style
-
-- **flake8** enforces PEP8 + docstrings (Google convention) + bugbear; max line length 120
-- **mypy** enforces type annotations across `src/`
-- **black** is configured (`pyproject.toml`) but disabled in pre-commit due to conflict with `reorder-python-imports`
-- Pre-commit hooks run mypy + flake8 on commit; pytest runs on push
-
-### Logging
-
-Use `logging.getLogger(__name__)` — never `print()` for runtime output.
+There is no PyPI-publishing workflow — this repo has no Python package to publish. (The `unstable-cicd.yaml`/`stable-cicd.yaml`/`codeql-analysis.yml` workflows that ship with `template-repo-python` were removed for that reason.)
