@@ -1,6 +1,8 @@
 # aws-utils
 
-AWS credential and access helper shell functions for PDS engineers: import pasted SSO console credentials, export a profile's credentials into your current shell, SSO login, and connect to an EC2 instance over SSM — with consistent `aws-*` naming instead of scattered one-off scripts.
+AWS credential and access helper shell functions for PDS engineers: import pasted SSO console credentials, export a profile's credentials into your current shell, SSO login, check which identity you're about to act as, and connect to an EC2 instance over SSM — with consistent `aws-*` naming instead of scattered one-off scripts.
+
+See [docs/OVERVIEW.md](docs/OVERVIEW.md) for a sprint-review-style summary (before/after, command table, workflow diagram).
 
 ## Prerequisites
 
@@ -26,8 +28,9 @@ source ~/.bashrc
 | `aws-creds-export` | `aws-creds-export <profile>` | Evaluates `aws configure export-credentials` for the profile into your **current shell's** environment, so subsequent commands (terraform, aws-cli, …) don't need `--profile` |
 | `aws-sso-login` | `aws-sso-login <profile>` | Runs `aws sso login --profile <profile>` |
 | `aws-ssm-connect` | `aws-ssm-connect <target> <profile>` | Runs `aws ssm start-session --target <target> --profile <profile>` to shell into an EC2 instance without opening inbound SSH |
+| `aws-whoami` | `aws-whoami [profile]` | Runs `aws sts get-caller-identity` (optionally `--profile <profile>`) — confirms which account/identity you're actually about to act as before you run something destructive |
 
-`aws-creds-export` is the one command that *must* be a sourced shell function rather than a standalone script: it needs to mutate your current shell's environment via `eval`, which only the shell itself can do — a subprocess can never reach back into its parent's environment. All four commands are kept together in `shell/aws-utils.sh` for that reason, so there's a single line to add to your rc file.
+`aws-creds-export` is the one command that *must* be a sourced shell function rather than a standalone script: it needs to mutate your current shell's environment via `eval`, which only the shell itself can do — a subprocess can never reach back into its parent's environment. All five commands are kept together in `shell/aws-utils.sh` for that reason, so there's a single line to add to your rc file.
 
 ## Workflow
 

@@ -8,7 +8,7 @@
 # These are shell FUNCTIONS, not standalone scripts on PATH, because
 # aws-creds-export needs to `eval` into your CURRENT shell's environment —
 # a subprocess can only ever change its own environment, never its
-# parent's. All four are kept together here so there's a single line to
+# parent's. All five are kept together here so there's a single line to
 # add to your rc file.
 #
 # Commands:
@@ -19,6 +19,9 @@
 #   aws-sso-login <profile>              aws sso login --profile <profile>
 #   aws-ssm-connect <target> <profile>   aws ssm start-session --target <target>
 #                                         --profile <profile>
+#   aws-whoami [profile]                 aws sts get-caller-identity, optionally
+#                                         --profile <profile> — which identity/
+#                                         account am I about to act as?
 
 aws-creds-import() {
     local creds_file="${AWS_SHARED_CREDENTIALS_FILE:-$HOME/.aws/credentials}"
@@ -94,4 +97,12 @@ aws-ssm-connect() {
         return 1
     fi
     aws ssm start-session --target "$1" --profile "$2"
+}
+
+aws-whoami() {
+    if [ -n "$1" ]; then
+        aws sts get-caller-identity --profile "$1"
+    else
+        aws sts get-caller-identity
+    fi
 }
