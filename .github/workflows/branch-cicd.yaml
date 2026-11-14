@@ -38,8 +38,9 @@ jobs:
                     lfs: true
                     fetch-depth: 0
                     token: ${{secrets.ADMIN_GITHUB_TOKEN || github.token}}
+                    persist-credentials: false
             -
                 name: 🐚 ShellCheck
-                uses: ludeeus/action-shellcheck@master
+                uses: ludeeus/action-shellcheck@00cae500b08a931fb5698e11e79bfbd38e612a38 # 2.0.0
                 with:
                     scandir: './shell'
